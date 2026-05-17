@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wi-Fi Health — BPI-R4</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --red:      #f85149;
+    --blue:     #58a6ff;
+    --orange:   #db6d28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; font-size: 14px; min-height: 100vh; }
+
+  header { display:flex; align-items:center; justify-content:space-between; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  header h1 { font-size: 16px; font-weight: 600; display:flex; align-items:center; gap:8px; }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  .header-right { display:flex; align-items:center; gap:16px; color: var(--muted); font-size:13px; }
+  .refresh-btn { background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .refresh-btn:hover { background: var(--border); }
+  .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-yellow { background: var(--yellow); }
+  .dot-red    { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  main { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  .section-title { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
+
+  /* Metric cards row */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .card-value { font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .card-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .val-green  { color: var(--green); }
+  .val-yellow { color: var(--yellow); }
+  .val-red    { color: var(--red); }
+  .val-blue   { color: var(--blue); }
+  .val-muted  { color: var(--muted); }
+
+  /* Radio cards */
+  .radios { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .radio-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .radio-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+  .radio-band { font-size: 16px; font-weight: 700; }
+  .radio-badge { font-size: 11px; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border); }
+  .radio-metrics { display:flex; flex-direction:column; gap:8px; }
+  .metric-row { display:flex; justify-content:space-between; align-items:center; }
+  .metric-name { color: var(--muted); font-size: 12px; }
+  .metric-val  { font-size: 13px; font-weight: 500; display:flex; align-items:center; gap:6px; }
+  .bar-wrap { width: 80px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+  /* Station table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  th .sort-arrow { opacity: .3; margin-left: 4px; }
+  th.sort-asc .sort-arrow::after  { content: '↑'; opacity: 1; }
+  th.sort-desc .sort-arrow::after { content: '↓'; opacity: 1; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  .mac-cell { font-family: monospace; font-size: 12px; color: var(--muted); }
+  .mac-cell strong { color: var(--text); }
+  .hostname { font-size: 12px; color: var(--blue); display:block; }
+  .band-pill { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .band-24  { background: #1f3a1f; color: #4ade80; }
+  .band-5   { background: #1a2e40; color: #60a5fa; }
+  .band-6   { background: #2d1f40; color: #c084fc; }
+  .signal-bar { display:flex; align-items:center; gap:6px; }
+  .signal-bars { display:flex; align-items:flex-end; gap:2px; height:14px; }
+  .signal-bars span { width:4px; border-radius:1px; background: var(--border); }
+  .rate-cell { font-variant-numeric: tabular-nums; }
+  .fail-cell { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .health-dot { width:10px; height:10px; border-radius:50%; }
+
+  .error-banner { background: #2d1515; border: 1px solid var(--red); color: var(--red); padding: 10px 16px; border-radius: 6px; font-size: 13px; }
+  .loading { color: var(--muted); text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📡 BPI-R4 <span>Wi-Fi Health</span></h1>
+  <div class="header-right">
+    <span id="last-update">—</span>
+    <span id="countdown" style="color:var(--blue)"></span>
+    <button class="refresh-btn" onclick="fetchData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="error-area"></div>
+
+  <section>
+    <div class="section-title">System</div>
+    <div class="cards" id="system-cards">
+      <div class="loading">Loading…</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Radios</div>
+    <div class="radios" id="radio-cards"></div>
+  </section>
+
+  <section>
+    <div class="section-title">Stations <span id="sta-count" style="color:var(--muted);font-weight:400"></span></div>
+    <div class="table-wrap">
+      <table id="sta-table">
+        <thead>
+          <tr>
+            <th data-col="health">● <span class="sort-arrow"></span></th>
+            <th data-col="hostname">Device <span class="sort-arrow"></span></th>
+            <th data-col="band">Band <span class="sort-arrow"></span></th>
+            <th data-col="signal">Signal <span class="sort-arrow"></span></th>
+            <th data-col="tx_rate">TX Rate <span class="sort-arrow"></span></th>
+            <th data-col="rx_rate">RX Rate <span class="sort-arrow"></span></th>
+            <th data-col="tx_failed_pct">TX Failed% <span class="sort-arrow"></span></th>
+            <th data-col="inactive_ms">Inactive <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="sta-body"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = '/cgi-bin/wifi-health';
+const REFRESH_S = 30;
+let countdown = REFRESH_S;
+let timer, countdownTimer;
+let sortCol = 'signal', sortDir = -1;
+let lastData = null;
+
+function healthScore(s) {
+  // Returns 0=good, 1=warn, 2=bad based on signal and tx_failed_pct
+  const sigBad  = s.signal < -75;
+  const sigWarn = s.signal < -65;
+  const failBad  = s.tx_failed_pct > 15;
+  const failWarn = s.tx_failed_pct > 5;
+  if (sigBad || failBad)   return 2;
+  if (sigWarn || failWarn) return 1;
+  return 0;
+}
+
+function colClass(val, good, warn) {
+  if (val <= good) return 'val-green';
+  if (val <= warn) return 'val-yellow';
+  return 'val-red';
+}
+function colClassHigh(val, good, warn) { // higher is better (signal)
+  if (val >= good) return 'val-green';
+  if (val >= warn) return 'val-yellow';
+  return 'val-red';
+}
+function barColor(pct, goodMax, warnMax) {
+  if (pct <= goodMax) return 'var(--green)';
+  if (pct <= warnMax) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function signalBars(dbm) {
+  const lvls = [-50, -60, -70, -80];
+  const active = lvls.filter(l => dbm >= l).length;
+  const color = dbm >= -65 ? 'var(--green)' : dbm >= -75 ? 'var(--yellow)' : 'var(--red)';
+  const heights = [4, 6, 10, 14];
+  return `<div class="signal-bars">${heights.map((h,i) =>
+    `<span style="height:${h}px;background:${i < active ? color : 'var(--border)'};"></span>`
+  ).join('')}</div>`;
+}
+
+function fmtRate(r) {
+  if (r >= 1000) return (r/1000).toFixed(2) + ' Gbit/s';
+  return r.toFixed(1) + ' Mbit/s';
+}
+function fmtInactive(ms) {
+  if (ms < 1000)  return ms + 'ms';
+  if (ms < 60000) return (ms/1000).toFixed(0) + 's';
+  return (ms/60000).toFixed(0) + 'm';
+}
+
+function renderSystem(d) {
+  const wanOk = d.wan_state === 'unknown' || d.wan_state === 'up';
+  document.getElementById('system-cards').innerHTML = `
+    <div class="card">
+      <div class="card-label">Uptime</div>
+      <div class="card-value val-blue">${d.uptime}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">CPU Load</div>
+      <div class="card-value ${colClass(parseFloat(d.load1),1.5,3)}">${d.load1}</div>
+      <div class="card-sub">${d.load5} · ${d.load15} (5m·15m)</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Memory</div>
+      <div class="card-value ${colClass(d.mem_pct,60,85)}">${d.mem_pct}%</div>
+      <div class="card-sub">${d.mem_used_mb} / ${d.mem_total_mb} MB used</div>
+    </div>
+    <div class="card">
+      <div class="card-label">WAN</div>
+      <div class="card-value ${wanOk ? 'val-green' : 'val-red'}">${wanOk ? '✓ UP' : '✗ DOWN'}</div>
+      <div class="card-sub" style="font-family:monospace;font-size:11px">${d.wan_ip || '—'}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Latency (8.8.8.8)</div>
+      <div class="card-value ${d.ping_ms === null ? 'val-red' : colClass(parseFloat(d.ping_ms),20,60)}">${d.ping_ms !== null ? d.ping_ms + 'ms' : '✗'}</div>
+    </div>
+  `;
+}
+
+function renderRadios(radios) {
+  document.getElementById('radio-cards').innerHTML = radios.map(r => {
+    const util = parseFloat(r.utilization);
+    const noise = parseInt(r.noise);
+    const noiseClass = noise < -85 ? 'val-green' : noise < -75 ? 'val-yellow' : 'val-red';
+    const utilColor = barColor(util, 40, 70);
+    const txColor   = barColor(parseFloat(r.tx_util), 30, 60);
+    const rxColor   = barColor(parseFloat(r.rx_util), 30, 60);
+    const bandClass = r.band === '2.4GHz' ? '#f97316' : r.band === '5GHz' ? 'var(--blue)' : '#c084fc';
+    return `
+    <div class="radio-card">
+      <div class="radio-header">
+        <div class="radio-band" style="color:${bandClass}">${r.band}</div>
+        <div class="radio-badge">CH${r.channel} · ${r.width}MHz · ${r.txpower}dBm</div>
+      </div>
+      <div class="radio-metrics">
+        <div class="metric-row">
+          <span class="metric-name">Stations</span>
+          <span class="metric-val" style="color:var(--text);font-size:15px;font-weight:700">${r.stations}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Channel util</span>
+          <span class="metric-val">
+            <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(util,100)}%;background:${utilColor}"></div></div>
+            <span style="color:${utilColor};min-width:40px;text-align:right">${util}%</span>
+          </span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">TX airtime</span>
+          <span class="metric-val">
+            <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(parseFloat(r.tx_util),100)}%;background:${txColor}"></div></div>
+            <span style="color:${txColor};min-width:40px;text-align:right">${r.tx_util}%</span>
+          </span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">RX airtime</span>
+          <span class="metric-val">
+            <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(parseFloat(r.rx_util),100)}%;background:${rxColor}"></div></div>
+            <span style="color:${rxColor};min-width:40px;text-align:right">${r.rx_util}%</span>
+          </span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Noise floor</span>
+          <span class="metric-val ${noiseClass}">${noise} dBm</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStations(stations) {
+  const cols = document.querySelectorAll('#sta-table th[data-col]');
+  cols.forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.dataset.col === sortCol) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  });
+
+  const sorted = [...stations].sort((a,b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (sortCol === 'health')   { va = healthScore(a); vb = healthScore(b); }
+    if (sortCol === 'hostname') { va = (a.hostname||a.mac).toLowerCase(); vb = (b.hostname||b.mac).toLowerCase(); }
+    if (sortCol === 'band')     { va = a.band; vb = b.band; }
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  document.getElementById('sta-count').textContent = `(${stations.length})`;
+  const hColors = ['var(--green)','var(--yellow)','var(--red)'];
+  const hLabels = ['Good','Warning','Poor'];
+
+  document.getElementById('sta-body').innerHTML = sorted.map(s => {
+    const h = healthScore(s);
+    const bandPill = s.band === '2.4GHz' ? 'band-24' : s.band === '5GHz' ? 'band-5' : 'band-6';
+    const sigClass = colClassHigh(s.signal, -65, -75);
+    const failClass = colClass(s.tx_failed_pct, 5, 15);
+    const macParts = s.mac.split(':');
+    const macDisplay = macParts.slice(0,3).join(':') + ':<strong>' + macParts.slice(3).join(':') + '</strong>';
+    return `<tr>
+      <td><div class="health-dot" style="background:${hColors[h]};box-shadow:0 0 5px ${hColors[h]}" title="${hLabels[h]}"></div></td>
+      <td class="mac-cell">
+        ${s.hostname ? `<span class="hostname">${s.hostname}</span>` : ''}
+        <span>${macDisplay}</span>
+      </td>
+      <td><span class="band-pill ${bandPill}">${s.band}</span></td>
+      <td class="rate-cell">
+        <div class="signal-bar">${signalBars(s.signal)}<span class="${sigClass}">${s.signal} dBm</span></div>
+      </td>
+      <td class="rate-cell">${fmtRate(s.tx_rate)}</td>
+      <td class="rate-cell">${fmtRate(s.rx_rate)}</td>
+      <td class="fail-cell ${failClass}">${s.tx_failed_pct.toFixed(1)}%</td>
+      <td style="color:var(--muted)">${fmtInactive(s.inactive_ms)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function fetchData() {
+  clearInterval(countdownTimer);
+  countdown = REFRESH_S;
+  try {
+    const resp = await fetch(API + '?_=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const d = await resp.json();
+    lastData = d;
+    document.getElementById('error-area').innerHTML = '';
+    document.getElementById('last-update').textContent = 'Updated ' + d.timestamp;
+    renderSystem(d);
+    renderRadios(d.radios);
+    renderStations(d.stations);
+  } catch(e) {
+    document.getElementById('error-area').innerHTML =
+      `<div class="error-banner">⚠ Failed to fetch data: ${e.message}. Retrying in ${REFRESH_S}s.</div>`;
+  }
+  countdownTimer = setInterval(() => {
+    countdown--;
+    document.getElementById('countdown').textContent = countdown > 0 ? `↻ ${countdown}s` : '';
+    if (countdown <= 0) { clearInterval(countdownTimer); fetchData(); }
+  }, 1000);
+}
+
+// Sort on header click
+document.querySelectorAll('#sta-table th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    if (sortCol === th.dataset.col) sortDir *= -1;
+    else { sortCol = th.dataset.col; sortDir = sortCol === 'signal' ? -1 : 1; }
+    if (lastData) renderStations(lastData.stations);
+  });
+});
+
+fetchData();
+</script>
+</body>
+</html>

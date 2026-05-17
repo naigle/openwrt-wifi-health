@@ -1,0 +1,109 @@
+name: Build and Release IPK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build IPK (no-compile package)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG="wifi-health-dashboard_${VERSION}-1_all"
+
+          mkdir -p ipk/data/www/cgi-bin
+          mkdir -p ipk/data/www/wifi-health
+          mkdir -p ipk/control
+
+          install -m 755 src/wifi-health  ipk/data/www/cgi-bin/wifi-health
+          install -m 644 src/index.html   ipk/data/www/wifi-health/index.html
+
+          # Add sysupgrade entries on install/remove
+          cat > ipk/control/postinst << 'EOF'
+          #!/bin/sh
+          grep -qF '/www/wifi-health/index.html' /etc/sysupgrade.conf 2>/dev/null || echo '/www/wifi-health/index.html' >> /etc/sysupgrade.conf
+          grep -qF '/www/cgi-bin/wifi-health'    /etc/sysupgrade.conf 2>/dev/null || echo '/www/cgi-bin/wifi-health'    >> /etc/sysupgrade.conf
+          exit 0
+          EOF
+
+          cat > ipk/control/prerm << 'EOF'
+          #!/bin/sh
+          sed -i '\|/www/wifi-health/index.html|d' /etc/sysupgrade.conf 2>/dev/null
+          sed -i '\|/www/cgi-bin/wifi-health|d'    /etc/sysupgrade.conf 2>/dev/null
+          exit 0
+          EOF
+
+          chmod 755 ipk/control/postinst ipk/control/prerm
+
+          INSTALLED_SIZE=$(du -sk ipk/data | awk '{print $1}')
+
+          cat > ipk/control/control << EOF
+          Package: wifi-health-dashboard
+          Version: ${VERSION}-1
+          Architecture: all
+          Maintainer: Matt Bird
+          Depends: iw, uhttpd
+          Section: admin
+          Priority: optional
+          Installed-Size: ${INSTALLED_SIZE}
+          Description: Real-time Wi-Fi health dashboard for OpenWrt routers.
+           Served at /wifi-health/ — shows channel utilisation, airtime,
+           noise floor, per-station signal, rates, TX failures and hostnames.
+           Auto-detects AP interfaces and WAN. No dependencies beyond iw+uhttpd.
+          EOF
+
+          echo "2.0" > ipk/debian-binary
+
+          tar -czf ipk/data.tar.gz    -C ipk/data    .
+          tar -czf ipk/control.tar.gz -C ipk/control .
+          tar -czf "${PKG}.ipk" -C ipk debian-binary data.tar.gz control.tar.gz
+
+          echo "IPK_FILE=${PKG}.ipk" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}"  >> $GITHUB_ENV
+
+      - name: Regenerate install.sh with embedded files
+        run: |
+          CGI_B64=$(base64 -w0 src/wifi-health)
+          HTML_B64=$(base64 -w0 src/index.html)
+
+          head -n $(grep -n '^CGI_B64=' install.sh | cut -d: -f1 | head -1) install.sh | head -n -1 > install.sh.new || cp install.sh install.sh.new
+          printf 'CGI_B64="%s"\n'  "$CGI_B64"  >> install.sh.new
+          printf 'HTML_B64="%s"\n' "$HTML_B64" >> install.sh.new
+          tail -n +$(( $(grep -n '^HTML_B64=' install.sh | cut -d: -f1 | head -1) + 1 )) install.sh >> install.sh.new
+          mv install.sh.new install.sh
+          chmod +x install.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.IPK_FILE }}
+            install.sh
+          body: |
+            ## Wi-Fi Health Dashboard v${{ env.VERSION }}
+
+            ### Install options
+
+            **Option 1 — install.sh (recommended, works on any OpenWrt router):**
+            ```sh
+            curl -sL https://github.com/${{ github.repository }}/releases/latest/download/install.sh \
+              -o install.sh && chmod +x install.sh && ./install.sh root@192.168.1.1
+            ```
+
+            **Option 2 — opkg with .ipk:**
+            ```sh
+            curl -sLO https://github.com/${{ github.repository }}/releases/latest/download/${{ env.IPK_FILE }}
+            opkg install ${{ env.IPK_FILE }}
+            ```
+
+            Dashboard available at **http://192.168.1.1/wifi-health/** after install.
+
+            ### Requirements
+            - OpenWrt 23.05+
+            - `iw` and `uhttpd` (both installed by default on most builds)
