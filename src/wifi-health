@@ -42,9 +42,9 @@ for iface in $AP_IFACES; do
     else band="6GHz"; fi
     survey=$(iw dev "$iface" survey dump 2>/dev/null)
     noise=$(echo    "$survey" | awk '/in use/{f=1} f&&/noise:/{print $2; exit}')
-    util=$(echo     "$survey" | awk '/in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/busy time:/{b=$(NF-1)}     END{if(a>0)printf "%.1f",b/a*100; else print "0"}')
-    tx_util=$(echo  "$survey" | awk '/in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/transmit time:/{t=$(NF-1)} END{if(a>0)printf "%.1f",t/a*100; else print "0"}')
-    rx_util=$(echo  "$survey" | awk '/in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/receive time:/{r=$(NF-1)}  END{if(a>0)printf "%.1f",r/a*100; else print "0"}')
+    util=$(echo     "$survey" | awk '/frequency:/{f=0} /in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/busy time:/{b=$(NF-1)}     END{if(a>0)printf "%.1f",b/a*100; else print "0"}')
+    tx_util=$(echo  "$survey" | awk '/frequency:/{f=0} /in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/transmit time:/{t=$(NF-1)} END{if(a>0)printf "%.1f",t/a*100; else print "0"}')
+    rx_util=$(echo  "$survey" | awk '/frequency:/{f=0} /in use/{f=1} f&&/active time:/{a=$(NF-1)} f&&/receive time:/{r=$(NF-1)}  END{if(a>0)printf "%.1f",r/a*100; else print "0"}')
     sta_count=$(iw dev "$iface" station dump 2>/dev/null | grep -c '^Station')
     [ -n "$radio_json" ] && radio_json="$radio_json,"
     radio_json="${radio_json}{\"iface\":\"${iface}\",\"band\":\"${band}\",\"channel\":${channel:-0},\"width\":${width:-0},\"txpower\":${txpwr:-0},\"noise\":${noise:-0},\"utilization\":${util:-0},\"tx_util\":${tx_util:-0},\"rx_util\":${rx_util:-0},\"stations\":${sta_count:-0}}"
