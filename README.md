@@ -72,6 +72,7 @@ ssh root@192.168.1.1 "rm -rf /www/wifi-health /www/cgi-bin/wifi-health"
 
 Tested on:
 - **BananaPi BPI-R4** (MediaTek MT7988 / Filogic 880, mt7996e Wi-Fi 7)
+- **GL.iNet GL-MT6000** (MediaTek MT7986 / Filogic 830, Wi-Fi 6)
 
 Should work on any OpenWrt router with `iw` and `uhttpd`. AP interface names and WAN interface are auto-detected so no manual configuration is needed.
 
