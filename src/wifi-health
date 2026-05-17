@@ -11,7 +11,7 @@ mins=$(( (uptime_s%3600)/60 ))
 load1=$(awk '{print $1}' /proc/loadavg)
 load5=$(awk '{print $2}' /proc/loadavg)
 load15=$(awk '{print $3}' /proc/loadavg)
-mem_total=$(awk '/MemTotal/{print $2}'    /proc/meminfo)
+mem_total=$(awk '/MemTotal/{print $2}'     /proc/meminfo)
 mem_avail=$(awk '/MemAvailable/{print $2}' /proc/meminfo)
 mem_used=$((mem_total - mem_avail))
 mem_pct=$((mem_used * 100 / mem_total))
@@ -66,13 +66,13 @@ for iface in $AP_IFACES; do
             mac,iface,band,signal+0,tx_rate+0,rx_rate+0,pct,retries+0,tx_pkt+0,inactive+0
     }
     /^Station/ { emit(); mac=$2; signal=0; tx_rate=0; rx_rate=0; tx_fail=0; tx_pkt=0; retries=0; inactive=0 }
-    /inactive time:/  { inactive=$3 }
+    /inactive time:/   { inactive=$3 }
     /signal: /&&!/avg/ { signal=$2 }
-    /tx bitrate:/     { tx_rate=$3 }
-    /rx bitrate:/     { rx_rate=$3 }
-    /tx packets:/     { tx_pkt=$3 }
-    /tx failed:/      { tx_fail=$3 }
-    /tx retries:/     { retries=$3 }
+    /tx bitrate:/      { tx_rate=$3 }
+    /rx bitrate:/      { rx_rate=$3 }
+    /tx packets:/      { tx_pkt=$3 }
+    /tx failed:/       { tx_fail=$3 }
+    /tx retries:/      { retries=$3 }
     END { emit() }
     ' >> "$tmpfile"
 done
