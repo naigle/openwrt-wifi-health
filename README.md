@@ -14,7 +14,8 @@ A lightweight, real-time Wi-Fi health dashboard for OpenWrt routers. No external
 
 ## Requirements
 
-- OpenWrt 23.05 or newer
+- OpenWrt 24.10 or newer (uses apk package manager)
+- OpenWrt 23.05 also supported via install.sh or from source
 - `iw` (installed by default)
 - `uhttpd` (installed by default)
 
@@ -33,12 +34,12 @@ curl -sL https://github.com/naigle/openwrt-wifi-health/releases/latest/download/
 ./install.sh root@192.168.1.1 ~/.ssh/my_router_key
 ```
 
-### Option 2 — opkg .ipk
+### Option 2 — apk package (OpenWrt 24.10+)
 
 ```sh
-# Download and install the .ipk from the latest release
-curl -sLO https://github.com/naigle/openwrt-wifi-health/releases/latest/download/wifi-health-dashboard_1.0.0-1_all.ipk
-opkg install wifi-health-dashboard_1.0.0-1_all.ipk
+# Download and install the .apk from the latest release
+curl -sLO https://github.com/naigle/openwrt-wifi-health/releases/latest/download/wifi-health-dashboard_1.0.0-r0_all.apk
+apk add --allow-untrusted wifi-health-dashboard_1.0.0-r0_all.apk
 ```
 
 ### Option 3 — from source (OpenWrt SDK)
@@ -58,8 +59,8 @@ Default: [http://192.168.1.1/wifi-health/](http://192.168.1.1/wifi-health/)
 ## Uninstall
 
 ```sh
-# Via opkg
-opkg remove wifi-health-dashboard
+# Via apk (OpenWrt 24.10+)
+apk del wifi-health-dashboard
 
 # Manual
 ssh root@192.168.1.1 "rm -rf /www/wifi-health /www/cgi-bin/wifi-health"

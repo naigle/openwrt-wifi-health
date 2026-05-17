@@ -1,4 +1,4 @@
-name: Build and Release IPK
+name: Build and Release APK
 
 on:
   push:
@@ -12,59 +12,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build IPK (no-compile package)
+      - name: Build APK
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          PKG="wifi-health-dashboard_${VERSION}-1_all"
+          PKG="wifi-health-dashboard_${VERSION}-r0_all"
 
-          mkdir -p ipk/data/www/cgi-bin
-          mkdir -p ipk/data/www/wifi-health
-          mkdir -p ipk/control
+          mkdir -p staging/www/cgi-bin staging/www/wifi-health
 
-          install -m 755 src/wifi-health  ipk/data/www/cgi-bin/wifi-health
-          install -m 644 src/index.html   ipk/data/www/wifi-health/index.html
+          install -m 755 src/wifi-health  staging/www/cgi-bin/wifi-health
+          install -m 644 src/index.html   staging/www/wifi-health/index.html
 
-          # Add sysupgrade entries on install/remove
-          cat > ipk/control/postinst << 'EOF'
+          INSTALLED_SIZE=$(du -sb staging/www | awk '{print $1}')
+          BUILDDATE=$(date +%s)
+
+          cat > staging/.PKGINFO << EOF
+          pkgname = wifi-health-dashboard
+          pkgver = ${VERSION}-r0
+          arch = all
+          size = ${INSTALLED_SIZE}
+          pkgdesc = Real-time Wi-Fi health dashboard for OpenWrt routers
+          url = https://github.com/${GITHUB_REPOSITORY}
+          builddate = ${BUILDDATE}
+          packager = Matt Bird
+          depend = iw
+          depend = uhttpd
+          EOF
+
+          cat > staging/.post-install << 'SCRIPT'
           #!/bin/sh
           grep -qF '/www/wifi-health/index.html' /etc/sysupgrade.conf 2>/dev/null || echo '/www/wifi-health/index.html' >> /etc/sysupgrade.conf
           grep -qF '/www/cgi-bin/wifi-health'    /etc/sysupgrade.conf 2>/dev/null || echo '/www/cgi-bin/wifi-health'    >> /etc/sysupgrade.conf
-          exit 0
-          EOF
+          SCRIPT
 
-          cat > ipk/control/prerm << 'EOF'
+          cat > staging/.pre-deinstall << 'SCRIPT'
           #!/bin/sh
           sed -i '\|/www/wifi-health/index.html|d' /etc/sysupgrade.conf 2>/dev/null
           sed -i '\|/www/cgi-bin/wifi-health|d'    /etc/sysupgrade.conf 2>/dev/null
-          exit 0
-          EOF
+          SCRIPT
 
-          chmod 755 ipk/control/postinst ipk/control/prerm
+          chmod 755 staging/.post-install staging/.pre-deinstall
 
-          INSTALLED_SIZE=$(du -sk ipk/data | awk '{print $1}')
+          tar -czf "${PKG}.apk" \
+            --owner=0 --group=0 \
+            -C staging \
+            .PKGINFO \
+            .post-install \
+            .pre-deinstall \
+            ./www
 
-          cat > ipk/control/control << EOF
-          Package: wifi-health-dashboard
-          Version: ${VERSION}-1
-          Architecture: all
-          Maintainer: Matt Bird
-          Depends: iw, uhttpd
-          Section: admin
-          Priority: optional
-          Installed-Size: ${INSTALLED_SIZE}
-          Description: Real-time Wi-Fi health dashboard for OpenWrt routers.
-           Served at /wifi-health/ — shows channel utilisation, airtime,
-           noise floor, per-station signal, rates, TX failures and hostnames.
-           Auto-detects AP interfaces and WAN. No dependencies beyond iw+uhttpd.
-          EOF
-
-          echo "2.0" > ipk/debian-binary
-
-          tar -czf ipk/data.tar.gz    -C ipk/data    .
-          tar -czf ipk/control.tar.gz -C ipk/control .
-          tar -czf "${PKG}.ipk" -C ipk debian-binary data.tar.gz control.tar.gz
-
-          echo "IPK_FILE=${PKG}.ipk" >> $GITHUB_ENV
+          echo "APK_FILE=${PKG}.apk" >> $GITHUB_ENV
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
 
       - name: Regenerate install.sh with embedded files
@@ -83,7 +79,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ env.IPK_FILE }}
+            ${{ env.APK_FILE }}
             install.sh
           body: |
             ## Wi-Fi Health Dashboard v${{ env.VERSION }}
@@ -96,14 +92,14 @@ jobs:
               -o install.sh && chmod +x install.sh && ./install.sh root@192.168.1.1
             ```
 
-            **Option 2 — opkg with .ipk:**
+            **Option 2 — apk package (OpenWrt 24.10+):**
             ```sh
-            curl -sLO https://github.com/${{ github.repository }}/releases/latest/download/${{ env.IPK_FILE }}
-            opkg install ${{ env.IPK_FILE }}
+            curl -sLO https://github.com/${{ github.repository }}/releases/latest/download/${{ env.APK_FILE }}
+            apk add --allow-untrusted ${{ env.APK_FILE }}
             ```
 
             Dashboard available at **http://192.168.1.1/wifi-health/** after install.
 
             ### Requirements
-            - OpenWrt 23.05+
+            - OpenWrt 24.10+ (apk); 23.05 supported via install.sh
             - `iw` and `uhttpd` (both installed by default on most builds)
