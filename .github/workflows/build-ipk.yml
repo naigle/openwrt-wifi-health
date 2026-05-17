@@ -87,6 +87,7 @@ jobs:
             ### Install options
 
             **Option 1 — install.sh (recommended, works on any OpenWrt router):**
+            Replace `192.168.1.1` with your router's actual IP address.
             ```sh
             curl -sL https://github.com/${{ github.repository }}/releases/latest/download/install.sh \
               -o install.sh && chmod +x install.sh && ./install.sh root@192.168.1.1

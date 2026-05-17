@@ -23,6 +23,8 @@ A lightweight, real-time Wi-Fi health dashboard for OpenWrt routers. No external
 
 ### Option 1 — install.sh (easiest, works from any machine with SSH)
 
+Replace `192.168.1.1` with your router's actual IP address.
+
 ```sh
 curl -sL https://github.com/naigle/openwrt-wifi-health/releases/latest/download/install.sh \
   -o install.sh && chmod +x install.sh
