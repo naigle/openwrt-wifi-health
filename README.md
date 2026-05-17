@@ -23,7 +23,7 @@ A lightweight, real-time Wi-Fi health dashboard for OpenWrt routers. No external
 ### Option 1 — install.sh (easiest, works from any machine with SSH)
 
 ```sh
-curl -sL https://github.com/mattbird/openwrt-wifi-health/releases/latest/download/install.sh \
+curl -sL https://github.com/naigle/openwrt-wifi-health/releases/latest/download/install.sh \
   -o install.sh && chmod +x install.sh
 
 # Password auth
@@ -37,14 +37,14 @@ curl -sL https://github.com/mattbird/openwrt-wifi-health/releases/latest/downloa
 
 ```sh
 # Download and install the .ipk from the latest release
-curl -sLO https://github.com/mattbird/openwrt-wifi-health/releases/latest/download/wifi-health-dashboard_1.0.0-1_all.ipk
+curl -sLO https://github.com/naigle/openwrt-wifi-health/releases/latest/download/wifi-health-dashboard_1.0.0-1_all.ipk
 opkg install wifi-health-dashboard_1.0.0-1_all.ipk
 ```
 
 ### Option 3 — from source (OpenWrt SDK)
 
 ```sh
-git clone https://github.com/mattbird/openwrt-wifi-health
+git clone https://github.com/naigle/openwrt-wifi-health
 # Copy into your OpenWrt package feed, then:
 make package/wifi-health-dashboard/compile
 ```

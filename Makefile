@@ -15,7 +15,7 @@ define Package/wifi-health-dashboard
   CATEGORY:=Administration
   TITLE:=Wi-Fi Health Dashboard
   DEPENDS:=+iw +uhttpd
-  URL:=https://github.com/mattbird/openwrt-wifi-health
+  URL:=https://github.com/naigle/openwrt-wifi-health
 endef
 
 define Package/wifi-health-dashboard/description

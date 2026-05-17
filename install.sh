@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # WiFi Health Dashboard — installer for OpenWrt
-# https://github.com/mattbird/openwrt-wifi-health
+# https://github.com/naigle/openwrt-wifi-health
 #
 # Usage:
 #   ./install.sh [user@host] [ssh-key]
