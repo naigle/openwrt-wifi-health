@@ -212,7 +212,10 @@ function renderSystem(d) {
     <div class="card">
       <div class="card-label">WAN</div>
       <div class="card-value ${wanOk ? 'val-green' : 'val-red'}">${wanOk ? '✓ UP' : '✗ DOWN'}</div>
-      <div class="card-sub" style="font-family:monospace;font-size:11px">${d.wan_ip || '—'}</div>
+      <div class="card-sub">
+        ${d.wan_proto ? `<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--border);color:var(--text);margin-right:5px">${d.wan_proto}</span>` : ''}
+        <span style="font-family:monospace;font-size:11px">${d.wan_ip || '—'}</span>
+      </div>
     </div>
     <div class="card">
       <div class="card-label">Latency (8.8.8.8)</div>
@@ -234,7 +237,7 @@ function renderRadios(radios) {
     <div class="radio-card">
       <div class="radio-header">
         <div class="radio-band" style="color:${bandClass}">${r.band}</div>
-        <div class="radio-badge">CH${r.channel} · ${r.width}MHz · ${r.txpower}dBm</div>
+        <div class="radio-badge">${r.protocols ? `802.11${r.protocols} · ` : ''}CH${r.channel} · ${r.width}MHz · ${r.txpower}dBm</div>
       </div>
       <div class="radio-metrics">
         <div class="metric-row">

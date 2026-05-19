@@ -24,6 +24,8 @@ wan_ip=$(ip addr show "$wan_if" 2>/dev/null | awk '/inet /{gsub(/\/[0-9]+$/,"",$
 [ -z "$wan_ip" ] && wan_ip=""
 ping_ms=$(ping -c 2 -W 1 8.8.8.8 2>/dev/null | awk -F'/' '/avg/{printf "%.1f",$5}')
 [ -z "$ping_ms" ] && ping_ms="null"
+wan_proto=$(uci -q get network.wan.proto 2>/dev/null)
+[ -z "$wan_proto" ] && case "$wan_if" in ppp*) wan_proto="pppoe" ;; *) wan_proto="dhcp" ;; esac
 
 # === AP INTERFACES — auto-detect all interfaces in AP mode ===
 AP_IFACES=$(iw dev 2>/dev/null | awk '/Interface/{iface=$2} /type AP/{print iface}')
@@ -37,6 +39,12 @@ for iface in $AP_IFACES; do
     freq=$(echo    "$info" | awk '/channel/{gsub(/.*\(/,""); gsub(/ MHz.*/,""); print}')
     width=$(echo   "$info" | awk '/width:/{print $6}')
     txpwr=$(echo   "$info" | awk '/txpower/{print $2}')
+    wiphy_num=$(echo "$info" | awk '/wiphy/{print $2}')
+    conf="/var/run/hostapd-phy${wiphy_num}.conf"
+    proto_parts=""
+    grep -q '^mobility_domain='    "$conf" 2>/dev/null && proto_parts="r"
+    grep -q '^rrm_neighbor_report=1' "$conf" 2>/dev/null && { [ -n "$proto_parts" ] && proto_parts="$proto_parts/k" || proto_parts="k"; }
+    [ "$(uci -q get wireless.default_radio${wiphy_num}.ieee80211v 2>/dev/null)" = "1" ] && { [ -n "$proto_parts" ] && proto_parts="$proto_parts/v" || proto_parts="v"; }
     if   [ "${freq:-0}" -lt 3000 ]; then band="2.4GHz"
     elif [ "${freq:-0}" -lt 5925 ]; then band="5GHz"
     else band="6GHz"; fi
@@ -47,7 +55,7 @@ for iface in $AP_IFACES; do
     rx_util=$(echo  "$survey" | awk -v freq="$freq" '/frequency:/{f=0} $0~(freq" MHz.*in use"){f=1} f&&/active time:/{a=$(NF-1)} f&&/receive time:/{r=$(NF-1)}  END{if(a>0)printf "%.1f",r/a*100; else print "0"}')
     sta_count=$(iw dev "$iface" station dump 2>/dev/null | grep -c '^Station')
     [ -n "$radio_json" ] && radio_json="$radio_json,"
-    radio_json="${radio_json}{\"iface\":\"${iface}\",\"band\":\"${band}\",\"channel\":${channel:-0},\"width\":${width:-0},\"txpower\":${txpwr:-0},\"noise\":${noise:-0},\"utilization\":${util:-0},\"tx_util\":${tx_util:-0},\"rx_util\":${rx_util:-0},\"stations\":${sta_count:-0}}"
+    radio_json="${radio_json}{\"iface\":\"${iface}\",\"band\":\"${band}\",\"protocols\":\"${proto_parts}\",\"channel\":${channel:-0},\"width\":${width:-0},\"txpower\":${txpwr:-0},\"noise\":${noise:-0},\"utilization\":${util:-0},\"tx_util\":${tx_util:-0},\"rx_util\":${rx_util:-0},\"stations\":${sta_count:-0}}"
 done
 
 # === STATIONS ===
@@ -93,11 +101,11 @@ NR==FNR { lease[$2]=($4=="*"?"":$4); next }
 [ -z "$sta_json" ] && sta_json=$(awk 'FNR>1{printf ","} {sub(/\}$/,",\"hostname\":\"\"}"); printf "%s",$0}' "$tmpfile")
 rm -f "$tmpfile"
 
-printf '{"timestamp":"%s","uptime":"%dd %dh %dm","uptime_s":%d,"load1":%s,"load5":%s,"load15":%s,"mem_total_mb":%d,"mem_used_mb":%d,"mem_pct":%d,"wan_state":"%s","wan_ip":"%s","ping_ms":%s,"radios":[%s],"stations":[%s]}' \
+printf '{"timestamp":"%s","uptime":"%dd %dh %dm","uptime_s":%d,"load1":%s,"load5":%s,"load15":%s,"mem_total_mb":%d,"mem_used_mb":%d,"mem_pct":%d,"wan_state":"%s","wan_ip":"%s","wan_proto":"%s","ping_ms":%s,"radios":[%s],"stations":[%s]}' \
     "$(date '+%Y-%m-%d %H:%M:%S')" \
     "$days" "$hrs" "$mins" "$uptime_s" \
     "$load1" "$load5" "$load15" \
     "$((mem_total/1024))" "$((mem_used/1024))" "$mem_pct" \
-    "$wan_state" "$wan_ip" "$ping_ms" \
+    "$wan_state" "$wan_ip" "$wan_proto" "$ping_ms" \
     "$radio_json" \
     "$sta_json"
